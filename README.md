@@ -18,25 +18,30 @@ tyco-csharp/
 └── tyco-csharp.sln      # Solution that ties the projects together
 ```
 
-## Usage
 
-Install the library into another solution (from the repo root):
+## Quick Start
 
-```bash
-dotnet add <YourProject>.csproj reference tyco-csharp/Tyco.CSharp/Tyco.CSharp.csproj
-```
+This package includes a ready-to-use example Tyco file at:
 
-Sample code:
+	example.tyco
+
+([View on GitHub](https://github.com/typedconfig/tyco-csharp/blob/main/example.tyco))
+
+You can load and parse this file using the C# Tyco API. Example usage:
 
 ```csharp
 using Tyco.CSharp;
 
-var context = TycoParser.Load("../tyco-test-suite/inputs/simple1.tyco");
-var json = context.ToJson(); // returns a JsonObject mirroring the canonical output
-Console.WriteLine(json["project"]); // prints "demo"
+var context = TycoParser.Load("example.tyco");
+var globals = context.Globals;
+var environment = globals["environment"];
+var debug = globals["debug"];
+var timeout = globals["timeout"];
+Console.WriteLine($"env={environment} debug={debug} timeout={timeout}");
+// ... access objects, etc ...
 ```
 
-You can also parse from a string with `TycoParser.LoadString(content)`.
+See the [example.tyco](https://github.com/typedconfig/tyco-csharp/blob/main/example.tyco) file for the full configuration example.
 
 ## Development
 
