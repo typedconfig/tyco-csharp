@@ -1,0 +1,11 @@
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/bin/Debug/net8.0/Tyco.CSharp.deps.json
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/bin/Debug/net8.0/Tyco.CSharp.dll
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/bin/Debug/net8.0/Tyco.CSharp.pdb
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.GeneratedMSBuildEditorConfig.editorconfig
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.AssemblyInfoInputs.cache
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.AssemblyInfo.cs
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.csproj.CoreCompileInputs.cache
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.dll
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/refint/Tyco.CSharp.dll
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.pdb
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/ref/Tyco.CSharp.dll
