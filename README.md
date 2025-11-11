@@ -21,27 +21,68 @@ tyco-csharp/
 
 ## Quick Start
 
-This package includes a ready-to-use example Tyco file at:
-
-	example.tyco
-
-([View on GitHub](https://github.com/typedconfig/tyco-csharp/blob/main/example.tyco))
-
-You can load and parse this file using the C# Tyco API. Example usage:
+All bindings ship the same canonical sample configuration under `tyco/example.tyco`
+([view on GitHub](https://github.com/typedconfig/tyco-csharp/blob/main/tyco/example.tyco)).
+Load it to explore globals, structs, and references exactly like in the Python README:
 
 ```csharp
+using System;
+using System.Text.Json.Nodes;
 using Tyco.CSharp;
 
-var context = TycoParser.Load("example.tyco");
-var globals = context.Globals;
-var environment = globals["environment"];
-var debug = globals["debug"];
-var timeout = globals["timeout"];
+var context = TycoParser.Load("tyco/example.tyco");
+JsonObject document = context.ToJson();
+
+var environment = document["environment"]?.GetValue<string>();
+var debug = document["debug"]?.GetValue<bool>();
+var timeout = document["timeout"]?.GetValue<int>();
 Console.WriteLine($"env={environment} debug={debug} timeout={timeout}");
-// ... access objects, etc ...
+
+if (document.TryGetPropertyValue("Database", out var databasesNode) && databasesNode is JsonArray databases)
+{
+    var primaryDb = databases[0]?.AsObject();
+    var dbHost = primaryDb?["host"]?.GetValue<string>();
+    var dbPort = primaryDb?["port"]?.GetValue<int>();
+    Console.WriteLine($"primary database -> {dbHost}:{dbPort}");
+}
 ```
 
-See the [example.tyco](https://github.com/typedconfig/tyco-csharp/blob/main/example.tyco) file for the full configuration example.
+### Example Tyco File
+
+```
+tyco/example.tyco
+```
+
+```tyco
+# Global configuration with type annotations
+str environment: production
+bool debug: false
+int timeout: 30
+
+# Database configuration struct
+Database:
+ *str name:           # Primary key field (*)
+  str host:
+  int port:
+  str connection_string:
+  # Instances
+  - primary, localhost,    5432, "postgresql://localhost:5432/myapp"
+  - replica, replica-host, 5432, "postgresql://replica-host:5432/myapp"
+
+# Server configuration struct  
+Server:
+ *str name:           # Primary key for referencing
+  int port:
+  str host:
+  ?str description:   # Nullable field (?) - can be null
+  # Server instances
+  - web1,    8080, web1.example.com,    description: "Primary web server"
+  - api1,    3000, api1.example.com,    description: null
+  - worker1, 9000, worker1.example.com, description: "Worker number 1"
+
+# Feature flags array
+str[] features: [auth, analytics, caching]
+```
 
 ## Development
 
