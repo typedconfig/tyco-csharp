@@ -9,3 +9,4 @@
 /home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/refint/Tyco.CSharp.dll
 /home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.pdb
 /home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/ref/Tyco.CSharp.dll
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp/obj/Debug/net8.0/Tyco.CSharp.sourcelink.json

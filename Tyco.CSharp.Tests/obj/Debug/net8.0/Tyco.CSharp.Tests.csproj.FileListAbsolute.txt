@@ -99,3 +99,4 @@
 /home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp.Tests/obj/Debug/net8.0/Tyco.CSharp.Tests.pdb
 /home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp.Tests/obj/Debug/net8.0/Tyco.CSharp.Tests.genruntimeconfig.cache
 /home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp.Tests/obj/Debug/net8.0/ref/Tyco.CSharp.Tests.dll
+/home/mlauria/typedconfig/tyco-csharp/Tyco.CSharp.Tests/obj/Debug/net8.0/Tyco.CSharp.Tests.sourcelink.json

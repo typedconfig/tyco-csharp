@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Tyco.CSharp.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+df834f60393a3d9e340940cc4838c4f62a44ec47")]
 [assembly: System.Reflection.AssemblyProductAttribute("Tyco.CSharp.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Tyco.CSharp.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
