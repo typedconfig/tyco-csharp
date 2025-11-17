@@ -33,17 +33,23 @@ using Tyco.CSharp;
 var context = TycoParser.Load("tyco/example.tyco");
 JsonObject document = context.ToObject();
 
-var environment = document["environment"]?.GetValue<string>();
-var debug = document["debug"]?.GetValue<bool>();
-var timeout = document["timeout"]?.GetValue<int>();
-Console.WriteLine($"env={environment} debug={debug} timeout={timeout}");
+var timezone = document["timezone"]?.GetValue<string>();
+Console.WriteLine($"timezone={timezone}");
 
-if (document.TryGetPropertyValue("Database", out var databasesNode) && databasesNode is JsonArray databases)
+if (document.TryGetPropertyValue("Application", out var appsNode) && appsNode is JsonArray apps)
 {
-    var primaryDb = databases[0]?.AsObject();
-    var dbHost = primaryDb?["host"]?.GetValue<string>();
-    var dbPort = primaryDb?["port"]?.GetValue<int>();
-    Console.WriteLine($"primary database -> {dbHost}:{dbPort}");
+    var primaryApp = apps[0]?.AsObject();
+    var service = primaryApp?["service"]?.GetValue<string>();
+    var command = primaryApp?["command"]?.GetValue<string>();
+    Console.WriteLine($"primary service -> {service} ({command})");
+}
+
+if (document.TryGetPropertyValue("Host", out var hostsNode) && hostsNode is JsonArray hosts)
+{
+    var backupHost = hosts[1]?.AsObject();
+    var hostname = backupHost?["hostname"]?.GetValue<string>();
+    var cores = backupHost?["cores"]?.GetValue<int>();
+    Console.WriteLine($"host {hostname} cores={cores}");
 }
 ```
 
@@ -54,34 +60,31 @@ tyco/example.tyco
 ```
 
 ```tyco
-# Global configuration with type annotations
-str environment: production
-bool debug: false
-int timeout: 30
+str timezone: UTC  # this is a global config setting
 
-# Database configuration struct
-Database:
- *str name:           # Primary key field (*)
-  str host:
-  int port:
-  str connection_string:
-  # Instances
-  - primary, localhost,    5432, "postgresql://localhost:5432/myapp"
-  - replica, replica-host, 5432, "postgresql://replica-host:5432/myapp"
+Application:       # schema defined first, followed by instance creation
+  str service:
+  str profile:
+  str command: start_app {service}.{profile} -p {port.number}
+  Host host:
+  Port port: Port(http_web)  # reference to Port instance defined below
+  - service: webserver, profile: primary, host: Host(prod-01-us)
+  - service: webserver, profile: backup,  host: Host(prod-02-us)
+  - service: database,  profile: mysql,   host: Host(prod-02-us), port: Port(http_mysql)
 
-# Server configuration struct  
-Server:
- *str name:           # Primary key for referencing
-  int port:
-  str host:
-  ?str description:   # Nullable field (?) - can be null
-  # Server instances
-  - web1,    8080, web1.example.com,    description: "Primary web server"
-  - api1,    3000, api1.example.com,    description: null
-  - worker1, 9000, worker1.example.com, description: "Worker number 1"
+Host:
+ *str hostname:  # star character (*) used as reference primary key
+  int cores:
+  bool hyperthreaded: true
+  str os: Debian
+  - prod-01-us, cores: 64, hyperthreaded: false
+  - prod-02-us, cores: 32, os: Fedora
 
-# Feature flags array
-str[] features: [auth, analytics, caching]
+Port:
+ *str name:
+  int number:
+  - http_web,   80  # can skip field keys when obvious
+  - http_mysql, 3306
 ```
 
 ## Development
