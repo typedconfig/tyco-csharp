@@ -334,7 +334,7 @@ public sealed class TycoContext
         return clone;
     }
 
-    public JsonObject ToJson()
+    public JsonObject ToObject()
     {
         var obj = new JsonObject();
         foreach (var (key, value) in _globals)
@@ -356,4 +356,6 @@ public sealed class TycoContext
         }
         return obj;
     }
+
+    public JsonObject ToJson() => ToObject();
 }

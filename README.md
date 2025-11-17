@@ -31,7 +31,7 @@ using System.Text.Json.Nodes;
 using Tyco.CSharp;
 
 var context = TycoParser.Load("tyco/example.tyco");
-JsonObject document = context.ToJson();
+JsonObject document = context.ToObject();
 
 var environment = document["environment"]?.GetValue<string>();
 var debug = document["debug"]?.GetValue<bool>();
