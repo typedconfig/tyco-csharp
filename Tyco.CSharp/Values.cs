@@ -324,58 +324,125 @@ internal static class TemplateResolver
         {
             return null;
         }
-        var segments = placeholder.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length == 0)
+
+        var attributes = placeholder.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (attributes.Length == 0)
         {
             return null;
         }
-        var fromGlobal = placeholder.StartsWith("global.", StringComparison.Ordinal);
-        var startIdx = fromGlobal ? 1 : 0;
 
-        TycoValue? value;
-        if (fromGlobal)
+        TycoValue? value = ResolveFromScope(TemplateScope.FromInstance(current), attributes);
+        if (value == null && attributes.Length > 1 && string.Equals(attributes[0], "global", StringComparison.Ordinal))
         {
-            if (segments.Length < 2)
+            value = ResolveFromScope(TemplateScope.ForGlobals(context), attributes[1..]);
+        }
+        if (value == null)
+        {
+            value = ResolveFromScope(TemplateScope.ForGlobals(context), attributes);
+        }
+
+        return value?.ToTemplateText();
+    }
+
+    private static TycoValue? ResolveFromScope(TemplateScope scope, string[] attributes)
+    {
+        if (!scope.IsValid || attributes.Length == 0)
+        {
+            return null;
+        }
+
+        var queue = new LinkedList<string>(attributes);
+        var currentScope = scope;
+        TycoValue? currentValue = null;
+
+        while (queue.Count > 0)
+        {
+            var attrName = queue.First!.Value;
+            if (!currentScope.TryGetValue(attrName, out currentValue))
+            {
+                if (queue.Count > 1)
+                {
+                    MergeFirstTwo(queue);
+                    continue;
+                }
+                return null;
+            }
+
+            queue.RemoveFirst();
+            if (queue.Count == 0)
+            {
+                break;
+            }
+
+            currentScope = TemplateScope.FromValue(currentValue!);
+            if (!currentScope.IsValid)
             {
                 return null;
             }
-            value = context.GetGlobal(segments[1]);
-        }
-        else if (current != null)
-        {
-            value = current.GetAttribute(segments[0]) ?? context.GetGlobal(segments[0]);
-        }
-        else
-        {
-            value = context.GetGlobal(segments[0]);
         }
 
-        if (value == null)
+        return currentValue;
+    }
+
+    private static void MergeFirstTwo(LinkedList<string> queue)
+    {
+        if (queue.Count < 2)
         {
-            return null;
+            return;
         }
 
-        for (var idx = startIdx + 1; idx < segments.Length; idx++)
+        var first = queue.First!.Value;
+        queue.RemoveFirst();
+        var second = queue.First!.Value;
+        queue.RemoveFirst();
+        queue.AddFirst($"{first}.{second}");
+    }
+
+    private readonly struct TemplateScope
+    {
+        private readonly TycoInstance? _instance;
+        private readonly TycoContext? _context;
+
+        private TemplateScope(TycoInstance? instance, TycoContext? context)
+        {
+            _instance = instance;
+            _context = context;
+        }
+
+        public static TemplateScope FromInstance(TycoInstance? instance) => new(instance, null);
+        public static TemplateScope ForGlobals(TycoContext context) => new(null, context);
+
+        public static TemplateScope FromValue(TycoValue value)
         {
             if (value.Kind == TycoValueKind.Instance && value.InstanceValue != null)
             {
-                value = value.InstanceValue.GetAttribute(segments[idx]);
+                return new TemplateScope(value.InstanceValue, null);
             }
-            else if (value.Kind == TycoValueKind.Reference && value.ReferenceValue?.Resolved != null)
+            if (value.Kind == TycoValueKind.Reference && value.ReferenceValue?.Resolved != null)
             {
-                value = value.ReferenceValue.Resolved.GetAttribute(segments[idx]);
+                return new TemplateScope(value.ReferenceValue.Resolved, null);
             }
-            else
-            {
-                return null;
-            }
-
-            if (value == null)
-            {
-                return null;
-            }
+            return default;
         }
 
-        return value.ToTemplateText();
+        public bool IsValid => _instance != null || _context != null;
+
+        public bool TryGetValue(string name, out TycoValue? value)
+        {
+            if (_instance != null)
+            {
+                value = _instance.GetAttribute(name);
+                return value != null;
+            }
+
+            if (_context != null)
+            {
+                value = _context.GetGlobal(name);
+                return value != null;
+            }
+
+            value = null;
+            return false;
+        }
     }
 }

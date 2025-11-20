@@ -13,9 +13,10 @@ public sealed record SourceLine(string Text, string? Path, int LineNumber)
 
 public sealed class TycoParser
 {
+    private const string AttrNamePattern = @"[a-z_][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*";
     private static readonly Regex StructDefRegex = new(@"^([A-Z][A-Za-z0-9_]*)\s*:$", RegexOptions.Compiled);
-    private static readonly Regex FieldRegex = new(@"^\s*([*?])?([A-Za-z][A-Za-z0-9_]*)(\[\])?\s+([a-z_][A-Za-z0-9_]*)\s*:(?:\s+(.*))?$", RegexOptions.Compiled);
-    private static readonly Regex DefaultUpdateRegex = new(@"^\s+([a-z_][A-Za-z0-9_]*)\s*:(?:\s+(.*))?$", RegexOptions.Compiled);
+    private static readonly Regex FieldRegex = new(@"^\s*([*?])?([A-Za-z][A-Za-z0-9_]*)(\[\])?\s+(" + AttrNamePattern + @")\s*:(?:\s+(.*))?$", RegexOptions.Compiled);
+    private static readonly Regex DefaultUpdateRegex = new(@"^\s+(" + AttrNamePattern + @")\s*:(?:\s+(.*))?$", RegexOptions.Compiled);
     private static readonly Regex StructCallRegex = new(@"^([A-Za-z][A-Za-z0-9_]*)\((.*)\)$", RegexOptions.Compiled);
 
     private readonly HashSet<string> _included = new(StringComparer.OrdinalIgnoreCase);
