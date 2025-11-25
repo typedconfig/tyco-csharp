@@ -62,6 +62,55 @@ internal static class Utilities
         return line.IndexOf(delimiter, start + delimiter.Length, StringComparison.Ordinal) < 0;
     }
 
+    public static bool HasUnclosedParentheses(string text)
+    {
+        var depth = 0;
+        var inQuotes = false;
+        var escape = false;
+        char quote = '\0';
+
+        foreach (var ch in text)
+        {
+            if (escape)
+            {
+                escape = false;
+                continue;
+            }
+            if (inQuotes)
+            {
+                if (ch == '\\')
+                {
+                    escape = true;
+                    continue;
+                }
+                if (ch == quote)
+                {
+                    inQuotes = false;
+                }
+                continue;
+            }
+            switch (ch)
+            {
+                case '"':
+                case '\'':
+                    inQuotes = true;
+                    quote = ch;
+                    break;
+                case '(':
+                    depth++;
+                    break;
+                case ')':
+                    if (depth > 0)
+                    {
+                        depth--;
+                    }
+                    break;
+            }
+        }
+
+        return depth > 0;
+    }
+
     public static List<string> SplitTopLevel(string input, char delimiter)
     {
         var result = new List<string>();

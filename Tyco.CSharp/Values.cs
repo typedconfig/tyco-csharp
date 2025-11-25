@@ -243,6 +243,25 @@ public sealed class TycoValue
         _ => Null(),
     };
 
+    public bool ValueEquals(TycoValue? other)
+    {
+        if (other == null || Kind != other.Kind)
+        {
+            return false;
+        }
+
+        return Kind switch
+        {
+            TycoValueKind.Null => true,
+            TycoValueKind.Bool => BoolValue == other.BoolValue,
+            TycoValueKind.Int => IntValue == other.IntValue,
+            TycoValueKind.Float => Math.Abs(FloatValue - other.FloatValue) < double.Epsilon,
+            TycoValueKind.String or TycoValueKind.Date or TycoValueKind.Time or TycoValueKind.DateTime
+                => string.Equals(StringValue?.Value, other.StringValue?.Value, StringComparison.Ordinal),
+            _ => ReferenceEquals(this, other),
+        };
+    }
+
     public string ToTemplateText() => Kind switch
     {
         TycoValueKind.Null => "null",

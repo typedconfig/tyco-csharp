@@ -18,6 +18,17 @@ public sealed class TycoParser
     private static readonly Regex FieldRegex = new(@"^\s*([*?])?([A-Za-z][A-Za-z0-9_]*)(\[\])?\s+(" + AttrNamePattern + @")\s*:(?:\s+(.*))?$", RegexOptions.Compiled);
     private static readonly Regex DefaultUpdateRegex = new(@"^\s+(" + AttrNamePattern + @")\s*:(?:\s+(.*))?$", RegexOptions.Compiled);
     private static readonly Regex StructCallRegex = new(@"^([A-Za-z][A-Za-z0-9_]*)\((.*)\)$", RegexOptions.Compiled);
+    private static readonly string[] ScalarTypeNames =
+    {
+        "bool",
+        "int",
+        "float",
+        "str",
+        "date",
+        "time",
+        "datetime",
+    };
+    private static readonly HashSet<string> ScalarTypes = new(ScalarTypeNames, StringComparer.Ordinal);
 
     private readonly HashSet<string> _included = new(StringComparer.OrdinalIgnoreCase);
 
@@ -117,6 +128,14 @@ public sealed class TycoParser
                 }
 
                 valueStr = Utilities.StripInlineComment(valueStr);
+                var trimmedDefault = valueStr.Trim();
+                if (trimmedDefault.StartsWith("(", StringComparison.Ordinal) &&
+                    Utilities.HasUnclosedParentheses(trimmedDefault))
+                {
+                    (idx, valueStr) = AccumulateEnumList(idx, lines, valueStr);
+                    valueStr = Utilities.StripInlineComment(valueStr);
+                    trimmedDefault = valueStr.Trim();
+                }
                 var isGlobal = !char.IsWhiteSpace(line.Text.FirstOrDefault());
                 if (!isGlobal && string.IsNullOrEmpty(currentStruct))
                 {
@@ -131,17 +150,32 @@ public sealed class TycoParser
                         IsNullable = modifier == "?",
                         IsArray = isArray,
                     };
-                    if (!string.IsNullOrWhiteSpace(valueStr))
+                    if (!string.IsNullOrWhiteSpace(trimmedDefault))
                     {
-                        var descriptor = FieldTypeDescriptor(typeName, isArray);
-                        schema.DefaultValue = ParseValue(valueStr, descriptor, context, lineSpan);
+                        if (trimmedDefault.StartsWith("(", StringComparison.Ordinal))
+                        {
+                            if (isArray)
+                            {
+                                throw new TycoParseException("Enum constraints are only supported on scalar fields", lineSpan);
+                            }
+                            if (!IsScalarType(typeName))
+                            {
+                                throw new TycoParseException($"Can only set enum values on {string.Join(", ", ScalarTypeNames)}", lineSpan);
+                            }
+                            schema.EnumChoices = ParseEnumChoices(trimmedDefault, typeName, context, lineSpan);
+                        }
+                        else
+                        {
+                            var descriptor = FieldTypeDescriptor(typeName, isArray);
+                            schema.DefaultValue = ParseValue(trimmedDefault, descriptor, context, lineSpan);
+                        }
                     }
                     context.GetStruct(currentStruct)!.AddField(schema);
                 }
                 else
                 {
                     var descriptor = FieldTypeDescriptor(typeName, isArray);
-                    var value = ParseValue(valueStr, descriptor, context, lineSpan);
+                    var value = ParseValue(trimmedDefault, descriptor, context, lineSpan);
                     context.SetGlobal(attrName, value);
                 }
                 continue;
@@ -159,18 +193,46 @@ public sealed class TycoParser
                     (idx, valueStr) = AccumulateMultiline(idx, lines, valueStr, delimiter);
                 }
                 valueStr = Utilities.StripInlineComment(valueStr);
-
-                TycoValue? parsedValue = null;
-                if (!string.IsNullOrWhiteSpace(valueStr))
+                var trimmedDefault = valueStr.Trim();
+                if (trimmedDefault.StartsWith("(", StringComparison.Ordinal) &&
+                    Utilities.HasUnclosedParentheses(trimmedDefault))
                 {
-                    var structDef = context.GetStruct(currentStruct)
-                        ?? throw new TycoParseException($"Unknown struct '{currentStruct}'", lineSpan);
-                    var schema = structDef.Fields.FirstOrDefault(f => f.Name == fieldName)
-                        ?? throw new TycoParseException($"Unknown field '{fieldName}'", lineSpan);
-                    var descriptor = FieldTypeDescriptor(schema.TypeName, schema.IsArray);
-                    parsedValue = ParseValue(valueStr, descriptor, context, lineSpan);
+                    (idx, valueStr) = AccumulateEnumList(idx, lines, valueStr);
+                    valueStr = Utilities.StripInlineComment(valueStr);
+                    trimmedDefault = valueStr.Trim();
                 }
-                context.GetStruct(currentStruct)!.SetDefault(fieldName, parsedValue);
+
+                var structDef = context.GetStruct(currentStruct)
+                    ?? throw new TycoParseException($"Unknown struct '{currentStruct}'", lineSpan);
+                var schema = structDef.Fields.FirstOrDefault(f => f.Name == fieldName)
+                    ?? throw new TycoParseException($"Unknown field '{fieldName}'", lineSpan);
+
+                if (!string.IsNullOrWhiteSpace(trimmedDefault))
+                {
+                    if (trimmedDefault.StartsWith("(", StringComparison.Ordinal))
+                    {
+                        if (schema.IsArray)
+                        {
+                            throw new TycoParseException("Enum constraints are only supported on scalar fields", lineSpan);
+                        }
+                        if (!IsScalarType(schema.TypeName))
+                        {
+                            throw new TycoParseException($"Can only set enum values on {string.Join(", ", ScalarTypeNames)}", lineSpan);
+                        }
+                        var choices = ParseEnumChoices(trimmedDefault, schema.TypeName, context, lineSpan);
+                        structDef.SetEnumChoices(fieldName, choices, lineSpan);
+                    }
+                    else
+                    {
+                        var descriptor = FieldTypeDescriptor(schema.TypeName, schema.IsArray);
+                        var parsedValue = ParseValue(trimmedDefault, descriptor, context, lineSpan);
+                        structDef.SetDefault(fieldName, parsedValue, lineSpan);
+                    }
+                }
+                else
+                {
+                    structDef.SetDefault(fieldName, null, lineSpan);
+                }
                 continue;
             }
 
@@ -241,6 +303,22 @@ public sealed class TycoParser
         if (Utilities.HasUnclosedDelimiter(builder.ToString(), delimiter))
         {
             throw new TycoParseException($"Unterminated {delimiter} string literal");
+        }
+        return (cursor, builder.ToString());
+    }
+
+    private static (int, string) AccumulateEnumList(int idx, IReadOnlyList<SourceLine> lines, string value)
+    {
+        var builder = new StringBuilder(value);
+        var cursor = idx;
+        while (cursor + 1 < lines.Count && Utilities.HasUnclosedParentheses(Utilities.StripInlineComment(builder.ToString())))
+        {
+            cursor++;
+            builder.Append('\n').Append(lines[cursor].Text);
+        }
+        if (Utilities.HasUnclosedParentheses(Utilities.StripInlineComment(builder.ToString())))
+        {
+            throw new TycoParseException("Unterminated enum declaration");
         }
         return (cursor, builder.ToString());
     }
@@ -368,6 +446,32 @@ public sealed class TycoParser
         }
         var pk = ParseStringValue(args, span);
         return TycoValue.Reference(new TycoReference(structName, pk.Value));
+    }
+
+    private List<TycoValue> ParseEnumChoices(string token, string typeName, TycoContext context, SourceSpan span)
+    {
+        var trimmed = token.Trim();
+        if (trimmed.Length < 2 || trimmed[0] != '(' || trimmed[^1] != ')')
+        {
+            throw new TycoParseException("Enum choices must be enclosed in parentheses", span);
+        }
+        var inner = trimmed[1..^1];
+        var parts = Utilities.SplitTopLevel(inner, ',');
+        if (parts.Count == 0)
+        {
+            throw new TycoParseException("Enum declaration must contain at least one choice", span);
+        }
+        var choices = new List<TycoValue>();
+        foreach (var part in parts)
+        {
+            if (string.IsNullOrWhiteSpace(part))
+            {
+                throw new TycoParseException("Enum declaration must contain at least one choice", span);
+            }
+            var parsed = ParseValue(part, typeName, context, span);
+            choices.Add(parsed);
+        }
+        return choices;
     }
 
     private TycoInstance ParseInlineInstance(string structName, string args, SourceSpan span)
@@ -510,6 +614,8 @@ public sealed class TycoParser
 
     private static string FieldTypeDescriptor(string baseType, bool isArray) =>
         isArray ? $"{baseType}[]" : baseType;
+
+    private static bool IsScalarType(string typeName) => ScalarTypes.Contains(typeName);
 
     public static TycoContext Load(string path) => new TycoParser().ParseFile(path);
     public static TycoContext LoadString(string content) => new TycoParser().ParseString(content);

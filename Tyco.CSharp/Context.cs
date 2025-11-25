@@ -11,6 +11,7 @@ public sealed class FieldSchema
     public bool IsNullable { get; set; }
     public bool IsArray { get; set; }
     public TycoValue? DefaultValue { get; set; }
+    public List<TycoValue>? EnumChoices { get; set; }
 
     public FieldSchema(string name, string typeName)
     {
@@ -24,6 +25,7 @@ public sealed class FieldSchema
         IsNullable = IsNullable,
         IsArray = IsArray,
         DefaultValue = DefaultValue?.Clone(),
+        EnumChoices = EnumChoices?.Select(v => v.Clone()).ToList(),
     };
 }
 
@@ -83,11 +85,31 @@ public sealed class TycoStruct
         }
     }
 
-    public void SetDefault(string fieldName, TycoValue? value)
+    public void SetDefault(string fieldName, TycoValue? value, SourceSpan? span = null)
     {
         var field = _fields.FirstOrDefault(f => f.Name == fieldName)
             ?? throw new TycoParseException($"Unknown field '{fieldName}'");
-        field.DefaultValue = value?.Clone();
+        if (value == null)
+        {
+            if (field.EnumChoices is { Count: > 0 })
+            {
+                throw new TycoParseException($"Field '{fieldName}' previously set as an enum; cannot set it to empty", span);
+            }
+            field.DefaultValue = null;
+        }
+        else
+        {
+            field.EnumChoices = null;
+            field.DefaultValue = value.Clone();
+        }
+    }
+
+    public void SetEnumChoices(string fieldName, List<TycoValue> choices, SourceSpan? span = null)
+    {
+        var field = _fields.FirstOrDefault(f => f.Name == fieldName)
+            ?? throw new TycoParseException($"Unknown field '{fieldName}'", span);
+        field.EnumChoices = choices.Select(choice => choice.Clone()).ToList();
+        field.DefaultValue = null;
     }
 
     public void BuildPrimaryIndex()
@@ -211,7 +233,16 @@ public sealed class TycoContext
                 var value = instance.RemoveAttribute(field.Name);
                 if (value != null)
                 {
-                    instance.SetAttribute(field.Name, CoerceValue(value, field));
+                    var coerced = CoerceValue(value, field);
+                    if (field.EnumChoices is { Count: > 0 } && !ValueMatchesEnum(coerced, field.EnumChoices))
+                    {
+                        throw new TycoParseException($"Field '{field.Name}' enum value '{coerced.ToTemplateText()}' not in choices {FormatEnumChoices(field.EnumChoices)}");
+                    }
+                    instance.SetAttribute(field.Name, coerced);
+                }
+                else if (field.EnumChoices is { Count: > 0 })
+                {
+                    throw new TycoParseException($"Field '{field.Name}' enum value not set for struct '{schema.Name}'");
                 }
                 else if (field.DefaultValue != null)
                 {
@@ -319,6 +350,21 @@ public sealed class TycoContext
             }
         }
     }
+
+    private static bool ValueMatchesEnum(TycoValue value, IReadOnlyCollection<TycoValue> choices)
+    {
+        foreach (var choice in choices)
+        {
+            if (value.ValueEquals(choice))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static string FormatEnumChoices(IEnumerable<TycoValue> choices) =>
+        "(" + string.Join(", ", choices.Select(choice => choice.ToTemplateText())) + ")";
 
     private TycoContext Clone()
     {
