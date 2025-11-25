@@ -28,7 +28,7 @@ public sealed class GoldenTests
             }
 
             var context = TycoParser.Load(inputPath);
-            var actual = context.ToObject();
+            var actual = context.AsObject();
             var expected = JsonNode.Parse(File.ReadAllText(expectedPath))!;
 
             if (!JsonEquals(actual, expected))

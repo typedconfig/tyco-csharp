@@ -31,7 +31,7 @@ using System.Text.Json.Nodes;
 using Tyco.CSharp;
 
 var context = TycoParser.Load("tyco/example.tyco");
-JsonObject document = context.ToObject();
+JsonObject document = context.AsObject();
 
 var timezone = document["timezone"]?.GetValue<string>();
 Console.WriteLine($"timezone={timezone}");

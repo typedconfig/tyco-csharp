@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Tyco.CSharp;
@@ -380,7 +382,7 @@ public sealed class TycoContext
         return clone;
     }
 
-    public JsonObject ToObject()
+    public JsonObject AsObject()
     {
         var obj = new JsonObject();
         foreach (var (key, value) in _globals)
@@ -403,5 +405,22 @@ public sealed class TycoContext
         return obj;
     }
 
-    public JsonObject ToJson() => ToObject();
+    public JsonObject AsJson() => AsObject();
+
+    public string DumpsJson(bool indented = true)
+    {
+        var options = new JsonSerializerOptions { WriteIndented = indented };
+        return JsonSerializer.Serialize(AsJson(), options);
+    }
+
+    public void DumpJson(string path, bool indented = true)
+    {
+        File.WriteAllText(path, DumpsJson(indented));
+    }
+
+    public void DumpJson(Stream stream, bool indented = true)
+    {
+        var options = new JsonSerializerOptions { WriteIndented = indented };
+        JsonSerializer.Serialize(stream, AsJson(), options);
+    }
 }
